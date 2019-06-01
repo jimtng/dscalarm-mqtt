@@ -1,0 +1,29 @@
+{
+    "name": "dscalarm-mqtt",
+    "description": "DSC Alarm to MQTT bridge using Homie Convention",
+    "main": "main.cpp",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/jimtng/dscalarm-mqtt.git"
+    },
+    "keywords": [
+      "DSC Alarm",
+      "dscKeybusInterface",
+      "Homie",
+      "homeatomation",
+      "alarm",
+      "iot"
+    ],
+    "dependencies": {
+      "Homie": "2.0.0",
+      "dscKeybusInterface": "1.2.0"
+    },
+    "frameworks": "arduino",
+    "platforms": "espressif8266",
+    "author": "jimtng",
+    "bugs": {
+      "url": "https://github.com/jimtng/dscalarm-mqtt/issues"
+    },
+    "homepage": "https://github.com/jimtng/dscalarm-mqtt"
+  }
+  

@@ -15,7 +15,7 @@
       "iot"
     ],
     "dependencies": {
-      "Homie": "2.0.0",
+      "homie-esp8266": "2.0.0",
       "dscKeybusInterface": "1.2.0"
     },
     "frameworks": "arduino",

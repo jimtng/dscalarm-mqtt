@@ -14,10 +14,10 @@
       "alarm",
       "iot"
     ],
-    "dependencies": {
+    "dependencies": [
       "homie-esp8266": "https://github.com/homieiot/homie-esp8266.git#v2.0.0",
       "dscKeybusInterface": "https://github.com/taligentx/dscKeybusInterface.git#v1.2"
-    },
+    ],
     "frameworks": "arduino",
     "platforms": "espressif8266",
     "author": "jimtng",

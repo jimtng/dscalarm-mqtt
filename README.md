@@ -52,7 +52,14 @@ homie/device-id/alarm/
 - `refresh-status/set`: 1
 
 ### To reboot the device, publish to
-- `reboot/set`: 1
+- `maintenance/set`: "reboot" to reboot
+- `maintenance/set`: "dsc-stop" to stop dsc keybus interrupts
+- `maintenance/set`: "dsc-start" to start dsc keybus interface
+
+The DSC Keybus interrupts seem to interfere with the OTA and Config update operation (when publishing to `homie/device-id/$implementation/config/set`), causing the ESP8266 to reset, and in the case of configuration update, to cause a corruption in the Homie configuration file and put Homie into the initial configuration mode.
+
+So before sending a config update, stop the DSC interrupts by publishing to `maintenance/set`: "dsc-stop". Once the config update has been made, restart the DSC interface using `maintenance/set`: "dsc-start" or sending a reboot request.
+
 
 ### To arm/disarm a partition, publish to:
 - `partition-N-away/set`: 0 (disarm) | 1 (arm partition - away mode)
@@ -89,11 +96,23 @@ curl -X PUT http://192.168.123.1/config --header "Content-Type: application/json
 ```
 
 ## Updating The Stored Alarm Access Code
+
+Before updating Homie config, the DSC interface needs to be deactivated / stopped, because it interferes with writing the configuration file. To do this, publish an MQTT message to
+`dsc-active/set` `0`
+
+After setting the configuration, reactivate the DSC interface by publishing to `dsc-active/set` `1`
+
 To change/update your access code that's stored on the device once it's operational (i.e. connected to your MQTT server), publish to
 `homie/device-id/$implementation/config/set {"settings":{"access-code":"1234"}}`
 e.g.
 ```
+mosquitto_pub -t 'homie/device-id/alarm/maintenance/set' -m dsc-stop
 mosquitto_pub -t 'homie/device-id/$implementation/config/set' -m '{"settings":{"access-code":"1234"}}'
+mosquitto_pub -t 'homie/device-id/alarm/maintenance/set' -m dsc-start
 ```
+
+Note 
+- The last step may be unnecessary because the ESP8266 seems to crash and restart, but the config gets updated.
+- You can update the wifi / mqtt connection details in the same manner
 
 

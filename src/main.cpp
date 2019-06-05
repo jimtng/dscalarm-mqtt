@@ -8,44 +8,7 @@
  *
  *  Processes the security system status and implement the Homie convention.
  *
- *  Published MQTT Topics:
- * 
- *  Base MQTT Topic (prepend this to all the topics below):
- *  homie/device-id/alarm/
- * 
- *  General MQTT topics:
- *  - trouble
- *  - power-trouble
- *  - battery-trouble
- *  - fire-alarm-keypad
- *  - aux-alarm-keypad
- *  - panic-alarm-keypad
- * 
- *  To request status refresh, publish to
- *  - refresh-status: 1
- * 
- * 
- *  Partitions:
- *  - partition-1-away:  0 (disarmed) | 1 (armed away)
- *  - partition-1-stay:  0 (disarmed) | 1 (armed stay)
- *  - partition-1-alarm: 0 (no alarm) | 1 (triggered)
- *  - partition-1-fire:  0 (no alarm) | 1 (fire alarm)
- *  - ...
- *  - partition-N-xxxx as above
- * 
- *  To arm/disarm a partition, publish to:
- *  - partition-N-away/set: 0 (disarm) | 1 (arm partition - away mode)
- *  - partition-N-stay/set: 0 (disarm) | 1 (arm partition - stay mode)
- * 
- *  Zones:
- *  - openzone-1: 0 (no movement) | 1 (movement detected)
- *  - ...
- *  - openzone-N: as above
- * 
- *  - alarmzone-1: 0|1
- *  - ...
- *  - alarmzone-N: as above
- * 
+ *  See README.md
  *
  *  Wiring:
  *      DSC Aux(+) ---+--- esp8266 NodeMCU Vin pin
@@ -80,7 +43,7 @@
 #include <Homie.h>
 #include <dscKeybusInterface.h>
 
-#define SOFTWARE_VERSION "1.0.0 build 110"
+#define SOFTWARE_VERSION "1.0.1"
 
 // Configures the Keybus interface with the specified pins
 // dscWritePin is optional, leaving it out disables the virtual keypad.
@@ -95,6 +58,8 @@ bool homieNodeInputHandler(const String& property, const HomieRange& range, cons
 
 HomieNode homieNode("alarm", "alarm", homieNodeInputHandler);
 HomieSetting<const char*> dscAccessCode("access-code", "Alarm access code");
+
+unsigned long dscStopTime = 0; // the time (in millis) when the dsc-stop was last requested
 
 void resetDscStatus() {
   dsc.statusChanged = true;
@@ -116,11 +81,23 @@ void resetDscStatus() {
   }
 }
 
+void dscEnd() {
+  timer1_detachInterrupt();
+  detachInterrupt(digitalPinToInterrupt(dscClockPin));  
+}
+
 void setupHandler() { 
   dsc.begin();
 }
 
 void loopHandler() {
+  // autmatically restart dsc after 5 minutes if it was stopped
+  if (dscStopTime > 0 && (millis() - dscStopTime) > 5*60*1000) {
+    dsc.begin();
+    dscStopTime = 0;
+    homieNode.setProperty("message").setRetained(false).send("DSC Interface restarted automatically");
+  } 
+
   if (!(dsc.handlePanel() && dsc.statusChanged)) { 
     return;
   }
@@ -309,18 +286,41 @@ bool onRefreshStatus(const HomieRange& range, const String& command) {
   return true;
 }
 
-bool onReboot(const HomieRange& range, const String& command) {
-  homieNode.setProperty("reboot").setRetained(false).send("Rebooting...");
-  Homie.reboot();
+bool onDscActive(const HomieRange& range, const String& command) {
+  if (command == "1") {
+    dsc.begin();
+  } else {
+    dscEnd();
+  }
+  return true;
+}
+
+bool onMaintenance(const HomieRange& range, const String& command) {
+  if (command == "reboot") {
+    homieNode.setProperty("maintenance").setRetained(false).send("Rebooting...");
+    Homie.reboot();
+  } else if (command == "dsc-stop") {
+    dscEnd();
+    homieNode.setProperty("maintenance").setRetained(false).send("DSC Interface stopped");
+    dscStopTime = millis();
+    if (dscStopTime == 0) dscStopTime = 1; // just in case millis() returned 0
+  } else if (command == "dsc-start") {
+    dscStopTime = 0;
+    dsc.begin();
+    homieNode.setProperty("maintenance").setRetained(false).send("DSC Interface started");
+  } else {
+    homieNode.setProperty("maintenance").setRetained(false).send("Unknown maintenance command");
+    return false;
+  }
   return true;
 }
 
 void onHomieEvent(const HomieEvent& event) {
   switch (event.type) {
     case HomieEventType::MQTT_READY: resetDscStatus(); break;
-    case HomieEventType::OTA_STARTED: timer1_detachInterrupt(); break;
+    case HomieEventType::OTA_STARTED: dscEnd(); break;
     case HomieEventType::OTA_SUCCESSFUL:
-    case HomieEventType::OTA_FAILED: timer1_attachInterrupt(dsc.dscDataInterrupt); break;
+    case HomieEventType::OTA_FAILED: dsc.begin(); break;
   }
 }
 
@@ -333,7 +333,7 @@ void setup() {
   Homie.onEvent(onHomieEvent);
 
   homieNode.advertise("refresh-status").settable(onRefreshStatus);
-  homieNode.advertise("reboot").settable(onReboot);
+  homieNode.advertise("maintenance").settable(onMaintenance);
   homieNode.advertise("keypad").settable(onKeypad); // write to dsc alarm
   homieNode.advertise("trouble");
   homieNode.advertise("power-trouble");

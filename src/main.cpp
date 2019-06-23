@@ -20,7 +20,7 @@
 #include <dscKeybusInterface.h>
 #include <time.h>
 
-#define SOFTWARE_VERSION "1.1.0 Build 10"
+#define SOFTWARE_VERSION "1.1.0 Build 11"
 
 // Configures the Keybus interface with the specified pins
 // dscWritePin is optional, leaving it out disables the virtual keypad.
@@ -186,7 +186,7 @@ void loopHandler() {
 
 bool onKeypad(const HomieRange& range, const String& command) {
   static char commandBuffer[256];
-  if (command.length > sizeof(commandBuffer)/sizeof(commandBuffer[0])) {
+  if (command.length() > sizeof(commandBuffer)/sizeof(commandBuffer[0])) {
     homieNode.setProperty("message").setRetained(false).send("Keypad data is too long");
   } else {
     strcpy(commandBuffer, command.c_str());

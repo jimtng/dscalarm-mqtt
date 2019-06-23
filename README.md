@@ -98,9 +98,9 @@ curl -X PUT http://192.168.123.1/config --header "Content-Type: application/json
 ## Updating The Stored Alarm Access Code
 
 Before updating Homie config, the DSC interface needs to be deactivated / stopped, because it interferes with writing the configuration file. To do this, publish an MQTT message to
-`dsc-active/set` `0`
+`maintenance/set` `dsc-stop`
 
-After setting the configuration, reactivate the DSC interface by publishing to `dsc-active/set` `1`
+After setting the configuration, reactivate the DSC interface by publishing to `maintenance/set` `dsc-start`
 
 To change/update your access code that's stored on the device once it's operational (i.e. connected to your MQTT server), publish to
 `homie/device-id/$implementation/config/set {"settings":{"access-code":"1234"}}`

@@ -26,17 +26,23 @@ homie/device-id/alarm/
 - `trouble`
 - `power-trouble`
 - `battery-trouble`
-- `fire-alarm-keypad`
+- `fire-alarm-keypad` 
 - `aux-alarm-keypad`
 - `panic-alarm-keypad`
+- `panel-time` provides the date/time stored in the alarm system formatted as YYYY-MM-DD HH:mm
 
 ### Partitions:
 - `partition-1-away`:  0 (disarmed) | 1 (armed away)
 - `partition-1-stay`:  0 (disarmed) | 1 (armed stay)
 - `partition-1-alarm`: 0 (no alarm) | 1 (triggered)
 - `partition-1-fire`:  0 (no alarm) | 1 (fire alarm)
+- `partition-1-access-code`: The access code used to arm/disarm
 - ...
 - `partition-N-xxxx` as above
+
+### To arm/disarm a partition, publish to:
+- `partition-N-away/set`: 0 (disarm) | 1 (arm partition - away mode)
+- `partition-N-stay/set`: 0 (disarm) | 1 (arm partition - stay mode)
 
 ### Zones:
 - `openzone-1`: 0 (no movement) | 1 (movement detected)
@@ -51,6 +57,9 @@ homie/device-id/alarm/
 ### To request status refresh, publish to
 - `refresh-status/set`: 1
 
+### To set the panel date/time, publish to
+- `panel-time/set`: "YYYY-MM-DD HH:mm"
+
 ### To reboot the device, publish to
 - `maintenance/set`: "reboot" to reboot
 - `maintenance/set`: "dsc-stop" to stop dsc keybus interrupts
@@ -59,11 +68,6 @@ homie/device-id/alarm/
 The DSC Keybus interrupts seem to interfere with the OTA and Config update operation (when publishing to `homie/device-id/$implementation/config/set`), causing the ESP8266 to reset, and in the case of configuration update, to cause a corruption in the Homie configuration file and put Homie into the initial configuration mode.
 
 So before sending a config update, stop the DSC interrupts by publishing to `maintenance/set`: "dsc-stop". Once the config update has been made, restart the DSC interface using `maintenance/set`: "dsc-start" or sending a reboot request.
-
-
-### To arm/disarm a partition, publish to:
-- `partition-N-away/set`: 0 (disarm) | 1 (arm partition - away mode)
-- `partition-N-stay/set`: 0 (disarm) | 1 (arm partition - stay mode)
 
 ## Initial Setup
 Homie needs to be configured before it can connect to your Wifi / MQTT server. 
@@ -115,4 +119,6 @@ Note
 - The last step may be unnecessary because the ESP8266 seems to crash and restart, but the config gets updated.
 - You can update the wifi / mqtt connection details in the same manner
 
-
+## Library Dependencies
+- [Homie-esp8266 v3.x](https://github.com/homieiot/homie-esp8266.git#develop-v3)
+- [dscKeybusReader v1.3](https://github.com/taligentx/dscKeybusInterface.git#develop)

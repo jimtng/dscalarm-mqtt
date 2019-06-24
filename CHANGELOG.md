@@ -2,8 +2,10 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+
+## [1.1.0]
 ### Added
-- MQTT Topic `panel-time` to get/set the alarm panel time
+- The alarm panel's time is published and can be set via MQTT Topic `panel-time`
 - MQTT Topic `partition-N-access-code` the access code is published whenever the alarm was armed/disarmed
 
 ### Changed

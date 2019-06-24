@@ -20,7 +20,7 @@
 #include <dscKeybusInterface.h>
 #include <time.h>
 
-#define SOFTWARE_VERSION "1.1.0 Build 11"
+#define SOFTWARE_VERSION "1.1.0 Build 12"
 
 // Configures the Keybus interface with the specified pins
 // dscWritePin is optional, leaving it out disables the virtual keypad.
@@ -160,7 +160,7 @@ void loopHandler() {
           homieNode.setProperty(property).send(bitRead(dsc.openZones[zoneGroup], zoneBit) ? "1" : "0");
         }
       }
-      dsc.openZonesChanged[zoneGroup] = 0;
+      dsc.openZonesChanged[zoneGroup] = 0; // reset the changed flags
     }
   }
 
@@ -186,8 +186,8 @@ void loopHandler() {
 
 bool onKeypad(const HomieRange& range, const String& command) {
   static char commandBuffer[256];
-  if (command.length() > sizeof(commandBuffer)/sizeof(commandBuffer[0])) {
-    homieNode.setProperty("message").setRetained(false).send("Keypad data is too long");
+  if (command.length() >= sizeof(commandBuffer)/sizeof(commandBuffer[0])) {
+    homieNode.setProperty("message").setRetained(false).send("The keypad data is too long. Max: " + sizeof(commandBuffer)-1);
   } else {
     strcpy(commandBuffer, command.c_str());
     dsc.write(commandBuffer);  
@@ -195,24 +195,25 @@ bool onKeypad(const HomieRange& range, const String& command) {
   return true;
 }
 
-// Arm - the partition argument is 0 based
+// Arm - the partition argument is 1 based
 void arm(byte partition, ArmType armType = arm_away) {
-  if (!dsc.armed[partition] && !dsc.exitDelay[partition]) {  // Read the argument sent from the homey flow
-    dsc.writePartition = partition + 1;
+  if (!dsc.armed[partition - 1] && !dsc.exitDelay[partition - 1]) {  // Read the argument sent from the homey flow
+    dsc.writePartition = partition;
     dsc.write(armType == arm_away ? "w" : "s");  // use the write(char *) version, not the write(char)
   }
 }
 
-// Disarm - the partition argument is 0 based
+// Disarm - the partition argument is 1 based
 void disarm(byte partition) {
-   if ((dsc.armed[partition] || dsc.exitDelay[partition])) {
-    dsc.writePartition = partition + 1;         // Sets writes to the partition number
+   if ((dsc.armed[partition - 1] || dsc.exitDelay[partition - 1])) {
+    dsc.writePartition = partition;         // Sets writes to the partition number
     dsc.write(dscAccessCode.get());
   }
 }
 
-// returns -1 if no prefix digit is found in str, otherwise 
-// returns the partition prefix (1-8), and remove it from the command string
+// Extracts the digits at the beginning of the given string
+// returns -1 if no prefix digits are found, otherwise 
+// returns the digits and remove them from the passed argument
 // e.g. 1xxx -> return 1, str = "xxx"
 byte extractPrefixDigits(String &str) {
   byte prefix = -1;
@@ -220,8 +221,8 @@ byte extractPrefixDigits(String &str) {
   while (i < str.length() && isdigit(str[i])) i++;
   
   if (i > 0) {
-    String pName = str.substring(0, i);
-    prefix = pName.toInt();
+    String digits = str.substring(0, i);
+    prefix = digits.toInt();
     str.remove(0, i);
   }
   return prefix;
@@ -234,16 +235,15 @@ bool homieNodeInputHandler(const HomieRange& range, const String& property, cons
   }
 
   // property should be in this format: "partition-X-yyy"
-  String prop = property;
-  prop.remove(0, 10); // remove the "partition-" prefix so prop starts with the partition number
-  byte partition = extractPrefixDigits(prop) - 1;
+  String prop = property.substring(10);
+  byte partition = extractPrefixDigits(prop); // prop should now contain -away or -stay
+  prop.remove(0, 1); // now remove that leading dash
+
   // validate partition number
-  if (partition < 0 || partition >= dscPartitions) { // invalid partition number
+  if (partition < 1 || partition > dscPartitions) { // invalid partition number
     homieNode.setProperty("message").setRetained(false).send("Partition number is out of range (1-" + String(dscPartitions) + ")");
     return false;
   }
-
-  prop.remove(0,1); // remove the dash after the digit
 
   if (prop == "away") {
     value == "0" || value.equalsIgnoreCase("off") ? disarm(partition) : arm(partition, arm_away);
@@ -276,12 +276,13 @@ bool onMaintenance(const HomieRange& range, const String& command) {
     Homie.reboot();
   } else if (command == "dsc-stop") {
     dsc.stop();
-    homieNode.setProperty("message").setRetained(false).send("DSC Interface stopped");
     dscStopTime = millis();
-    if (dscStopTime == 0) dscStopTime = 1; // just in case millis() returned 0
+    homieNode.setProperty("message").setRetained(false).send("DSC Interface stopped");
   } else if (command == "dsc-start") {
-    dscStopTime = 0;
-    dsc.begin();
+    if (dscStopTime > 0) {
+      dscStopTime = 0;
+      dsc.begin();
+    }
     homieNode.setProperty("message").setRetained(false).send("DSC Interface started");
   } else {
     homieNode.setProperty("message").setRetained(false).send("Unknown maintenance command");
@@ -296,10 +297,10 @@ bool onPanelTime(const HomieRange& range, const String& command) {
     struct tm tm; // note tm_year is year since 1900, and tm_mon is month since January. Add offsets accordingly
     strptime(command.c_str(), "%Y-%m-%d %H:%M", &tm);
     dsc.setTime(1900 + tm.tm_year, 1 + tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, dscAccessCode.get());
-    // homieNode.setProperty("message").setRetained(false).send("OK");
-    homieNode.setProperty("message").setRetained(false).send("OK: " + 
-      String(tm.tm_year + 1900, DEC) + "-" + String(1+tm.tm_mon, DEC) + "-" + String(tm.tm_mday) + " " +
-      String(tm.tm_hour, DEC) + ":" + String(tm.tm_min, DEC));
+    homieNode.setProperty("message").setRetained(false).send("OK");
+    // homieNode.setProperty("message").setRetained(false).send("OK: " + 
+    //   String(tm.tm_year + 1900, DEC) + "-" + String(1+tm.tm_mon, DEC) + "-" + String(tm.tm_mday) + " " +
+    //   String(tm.tm_hour, DEC) + ":" + String(tm.tm_min, DEC));
   } else {
     homieNode.setProperty("message").setRetained(false).send("ERROR: DSC Keybus is not connected");
   }
@@ -334,14 +335,14 @@ void setup() {
   homieNode.advertise("panic-alarm-keypad");
   homieNode.advertise("panel-time").settable(onPanelTime);
 
-  for (byte i = 1; i <= dscPartitions; i++) {
-    String pName = "partition-" + String(i) + "-";
-    homieNode.advertise(String(pName + "away").c_str()).settable();
-    homieNode.advertise(String(pName + "stay").c_str()).settable();
-    homieNode.advertise(String(pName + "exit-delay").c_str());
-    homieNode.advertise(String(pName + "alarm").c_str());
-    homieNode.advertise(String(pName + "fire").c_str());
-    // homieNode.advertise(String(pName + "access-code").c_str()); //## BUG: It seems that the mqtt library cannot handle large messages
+  for (byte i = 1; i <= dscPartitions; i++) { 
+    String digits = "partition-" + String(i) + "-";
+    homieNode.advertise(String(digits + "away").c_str()).settable();
+    homieNode.advertise(String(digits + "stay").c_str()).settable();
+    homieNode.advertise(String(digits + "exit-delay").c_str());
+    homieNode.advertise(String(digits + "alarm").c_str());
+    homieNode.advertise(String(digits + "fire").c_str());
+    // homieNode.advertise(String(digits + "access-code").c_str()); //## BUG: It seems that the mqtt library cannot handle large messages
   }
 
   Homie.setup();

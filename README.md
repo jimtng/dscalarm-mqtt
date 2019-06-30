@@ -11,7 +11,7 @@ https://github.com/taligentx/dscKeybusInterface
 ## Features
 - MQTT Based
 - OTA Updateable (Thanks to Homie)
-- Configurable Wifi, MQTT, device id, and Alarm's access code. See the Setup Instructions below
+- Configurable Wifi, MQTT, device id, and Alarm's access code. See the [Setup Instructions](#initial-setup) below
 - Tested with OpenHAB, but it should work with other home automation systems. Let me know if you're using it with other home automation systems so I can update this document.
 
 ## Usage Examples
@@ -26,7 +26,7 @@ https://github.com/taligentx/dscKeybusInterface
 The Homie convention specifies the following syntax for MQTT topics:
 `homie/device-id/nodename/xxx`
 
-- The `device-id` can be set in Homie configuration - see **Initial Setup** below.
+- The `device-id` can be set in Homie configuration - see [Initial Setup](#initial-setup) below.
 
 ## Homie Nodes
 - `alarm` for the main alarm functionalities
@@ -54,7 +54,7 @@ Each partition is implemented as a homie node, so the base MQTT topic for partit
 - `homie/device-id/partition-1/exit-delay`: 0 | 1 (the system is in exit-delay state)
 - `homie/device-id/partition-1/fire`:  0 (no alarm) | 1 (fire alarm)
 - `homie/device-id/partition-1/access-code`: The access code used to arm/disarm
-- `homie/device-id/partition-1/lights`: Status lights in JSON { "ready": "ON|OFF", "armed": "ON|OFF", "memory": "ON|OFF", "bypass": "ON|OFF", "trouble": "ON|OFF", "program": "ON|OFF", "fire": "ON|OFF", "backlight": "ON|OFF"}
+- `homie/device-id/partition-1/lights`: Status lights in JSON `{ "ready": "ON|OFF", "armed": "ON|OFF", "memory": "ON|OFF", "bypass": "ON|OFF", "trouble": "ON|OFF", "program": "ON|OFF", "fire": "ON|OFF", "backlight": "ON|OFF"}`
 - ...
 - `homie/device-id/partition-N/xxxx` as above
 
@@ -82,7 +82,7 @@ These will be published when the alarm was triggered by zone motion detection du
 ### To set the panel date/time, publish to
 - `homie/device-id/alarm/panel-time/set`: "YYYY-MM-DD HH:mm"
 
-### To reboot the device, publish to
+### Miscellaneous
 - `homie/device-id/alarm/maintenance/set`: "reboot" to reboot
 - `homie/device-id/alarm/maintenance/set`: "dsc-stop" to stop dsc keybus interrupts
 - `homie/device-id/alarm/maintenance/set`: "dsc-start" to start dsc keybus interface

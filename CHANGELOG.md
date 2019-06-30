@@ -3,7 +3,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [1.1.0]
+## [2.0.0]
+Changed to v2.x due to the breaking change in the partition topics
+
 ### Added
 - The alarm panel's time is published via MQTT Topic `homie/device-id/alarm/panel-time` and set through `homie/device-id/alarm/panel-time/set`
 - MQTT Topic `homie/device-id/partition-N/entry-delay` to indicate that the alarm is in the entry-delay state

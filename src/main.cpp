@@ -21,7 +21,7 @@
 #include <time.h>
 #include <ArduinoJson.h>
 
-#define SOFTWARE_VERSION "1.1.0 Build 17"
+#define SOFTWARE_VERSION "2.0.0 Build 1"
 
 // Configures the Keybus interface with the specified pins
 // dscWritePin is optional, leaving it out disables the virtual keypad.

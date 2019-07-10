@@ -32,8 +32,8 @@ dscKeybusInterface dsc(dscClockPin, dscReadPin, dscWritePin);
 
 enum ArmType { arm_away, arm_stay };
 
-HomieNode homieNode("alarm", "alarm", "alarm");
-HomieNode *partitions[dscPartitions];
+HomieNode alarmNode("alarm", "alarm", "alarm");
+HomieNode *partitionNode[dscPartitions];
 char partitionNames[dscPartitions][13]; // to store partition names for HomieNode partitions
 
 HomieSetting<const char*> dscAccessCode("access-code", "Alarm access code");
@@ -47,6 +47,7 @@ const char* flagMap[] = { "0", "1" };
 const String lightsToJson(const byte lights) {
   String output;  
   const size_t capacity = JSON_OBJECT_SIZE(8);
+  const char* lightNames[] = { "ready", "armed", "memory", "bypass", "trouble", "program", "fire", "backlight" }; 
 #if ARDUINOJSON_VERSION_MAJOR >= 6
   DynamicJsonDocument doc(capacity);
   UNTESTED
@@ -54,14 +55,9 @@ const String lightsToJson(const byte lights) {
   DynamicJsonBuffer jb(capacity); // staticjsonbuffer doesn't seem to work, producing only 6 objects instead of 8
   JsonObject& doc = jb.createObject();
 #endif
-  doc["ready"]     = bit2str[bitRead(lights, 0)];
-  doc["armed"]     = bit2str[bitRead(lights, 1)];
-  doc["memory"]    = bit2str[bitRead(lights, 2)];
-  doc["bypass"]    = bit2str[bitRead(lights, 3)];
-  doc["trouble"]   = bit2str[bitRead(lights, 4)];
-  doc["program"]   = bit2str[bitRead(lights, 5)];
-  doc["fire"]      = bit2str[bitRead(lights, 6)];
-  doc["backlight"] = bit2str[bitRead(lights, 7)];
+  for (byte i = 0; i < 8; i++) {
+    doc[lightNames[i]] = bit2str[bitRead(lights, i)];
+  }
 #if ARDUINOJSON_VERSION_MAJOR >= 6
   serializeJson(doc, output);
 #else
@@ -96,7 +92,7 @@ void loopHandler() {
   if (dscStopTime > 0 && (millis() - dscStopTime) > 5*60*1000) {
     dsc.begin();
     dscStopTime = 0;
-    homieNode.setProperty("message").setRetained(false).send("DSC Interface restarted automatically");
+    alarmNode.setProperty("message").setRetained(false).send("DSC Interface restarted automatically");
   } 
 
   dsc.loop();
@@ -109,7 +105,7 @@ void loopHandler() {
   // handlePanel() more often, or increase dscBufferSize in the library: src/dscKeybusInterface.h
   if (dsc.bufferOverflow) {
     dsc.bufferOverflow = false;
-    homieNode.setProperty("message").setRetained(false).send("Keybus buffer overflow");
+    alarmNode.setProperty("message").setRetained(false).send("Keybus buffer overflow");
   }
   
   // Sends the access code when needed by the panel for arming
@@ -120,32 +116,32 @@ void loopHandler() {
 
   if (dsc.troubleChanged) {
     dsc.troubleChanged = false;
-    homieNode.setProperty("trouble").send(flagMap[dsc.trouble]);
+    alarmNode.setProperty("trouble").send(flagMap[dsc.trouble]);
   }
 
   if (dsc.powerChanged) {
     dsc.powerChanged = false; 
-    homieNode.setProperty("power-trouble").send(flagMap[dsc.powerTrouble]);
+    alarmNode.setProperty("power-trouble").send(flagMap[dsc.powerTrouble]);
   }
 
   if (dsc.batteryChanged) {
     dsc.batteryChanged = false;
-    homieNode.setProperty("battery-trouble").send(flagMap[dsc.batteryTrouble]);
+    alarmNode.setProperty("battery-trouble").send(flagMap[dsc.batteryTrouble]);
   }
 
   if (dsc.keypadFireAlarm) {
     dsc.keypadFireAlarm = false; 
-    homieNode.setProperty("fire-alarm-keypad").send("1");
+    alarmNode.setProperty("fire-alarm-keypad").send("1");
   }
 
   if (dsc.keypadAuxAlarm) {
     dsc.keypadAuxAlarm = false;
-    homieNode.setProperty("aux-alarm-keypad").send("1");
+    alarmNode.setProperty("aux-alarm-keypad").send("1");
   }
 
   if (dsc.keypadPanicAlarm) {
     dsc.keypadPanicAlarm = false;
-    homieNode.setProperty("panic-alarm-keypad").send("1");
+    alarmNode.setProperty("panic-alarm-keypad").send("1");
   }
 
   if (dsc.timestampChanged) {
@@ -153,14 +149,14 @@ void loopHandler() {
     if (!(dsc.year < 0 || dsc.year > 9999 || dsc.month < 1 || dsc.month > 12 || dsc.day < 1 || dsc.day > 31 || dsc.hour < 0 || dsc.hour > 23 || dsc.minute < 0 || dsc.minute > 59)) {
       char panelTime[17]; // YYYY-MM-DD HH:mm
       sprintf(panelTime, "%04d-%02d-%02d %02d:%02d", dsc.year, dsc.month, dsc.day, dsc.hour, dsc.minute);
-      homieNode.setProperty("panel-time").setRetained(false).send(panelTime);
+      alarmNode.setProperty("panel-time").setRetained(false).send(panelTime);
     }
   }
 
   String prefix;
   // loop through partitions
   for (byte partition = 0; partition < dscPartitions; partition++) {
-    HomieNode *node = partitions[partition];
+    HomieNode *node = partitionNode[partition];
     if (node == nullptr || dsc.status[partition] == 0xC7 || dsc.status[partition] == 0) { // the partition is disabled https://github.com/taligentx/dscKeybusInterface/issues/99
       continue;
     }
@@ -235,7 +231,7 @@ void loopHandler() {
       for (byte zoneBit = 0; zoneBit < 8; zoneBit++) {
         if (bitRead(dsc.openZonesChanged[zoneGroup], zoneBit)) {  // Checks an individual open zone status flag
           prefix = "openzone-" + String(zoneBit + 1 + (zoneGroup * 8));
-          homieNode.setProperty(prefix).setRetained(false).send(bitRead(dsc.openZones[zoneGroup], zoneBit) ? "1" : "0");
+          alarmNode.setProperty(prefix).setRetained(false).send(bitRead(dsc.openZones[zoneGroup], zoneBit) ? "1" : "0");
         }
       }
       dsc.openZonesChanged[zoneGroup] = 0; // reset the changed flags
@@ -254,7 +250,7 @@ void loopHandler() {
       for (byte zoneBit = 0; zoneBit < 8; zoneBit++) {
         if (bitRead(dsc.alarmZonesChanged[zoneGroup], zoneBit)) {  // Checks an individual alarm zone status flag
           prefix = "alarmzone-" + String(zoneBit + 1 + (zoneGroup * 8));
-          homieNode.setProperty(prefix).send(flagMap[bitRead(dsc.alarmZones[zoneGroup], zoneBit)]);
+          alarmNode.setProperty(prefix).send(flagMap[bitRead(dsc.alarmZones[zoneGroup], zoneBit)]);
         }
       }
       dsc.alarmZonesChanged[zoneGroup] = 0;
@@ -268,13 +264,13 @@ bool onKeypad(const HomieRange& range, const String& command) {
   // so the string given to dsc.write needs to remain in memory
   static char commandBuffer[64]; 
   if (command.length() >= sizeof(commandBuffer)/sizeof(commandBuffer[0])) {
-    homieNode.setProperty("message").setRetained(false).send("The keypad data is too long. Max: " + String(sizeof(commandBuffer)-1));
+    alarmNode.setProperty("message").setRetained(false).send("The keypad data is too long. Max: " + String(sizeof(commandBuffer)-1));
   } else {
     unsigned long t = millis();
     while (!dsc.writeReady) {
       dsc.loop(); // wait until all pending writes are done
       if (millis() - t > 10000) { // don't wait forever - max 10s
-        homieNode.setProperty("message").setRetained(false).send("ERROR: Timed out");
+        alarmNode.setProperty("message").setRetained(false).send("ERROR: Timed out");
         return true;
       }
     } 
@@ -302,26 +298,26 @@ void disarm(byte partition) {
 
 bool onRefreshStatus(const HomieRange& range, const String& command) {
   resetStatus();
-  homieNode.setProperty("refresh-status").setRetained(false).send("OK");
+  alarmNode.setProperty("refresh-status").setRetained(false).send("OK");
   return true;
 }
 
 bool onMaintenance(const HomieRange& range, const String& command) {
   if (command == "reboot") {
-    homieNode.setProperty("message").setRetained(false).send("Rebooting...");
+    alarmNode.setProperty("message").setRetained(false).send("Rebooting...");
     Homie.reboot();
   } else if (command == "dsc-stop") {
     dsc.stop();
     dscStopTime = millis();
-    homieNode.setProperty("message").setRetained(false).send("DSC Interface stopped");
+    alarmNode.setProperty("message").setRetained(false).send("DSC Interface stopped");
   } else if (command == "dsc-start") {
     if (dscStopTime > 0) {
       dscStopTime = 0;
       dsc.begin();
     }
-    homieNode.setProperty("message").setRetained(false).send("DSC Interface started");
+    alarmNode.setProperty("message").setRetained(false).send("DSC Interface started");
   } else {
-    homieNode.setProperty("message").setRetained(false).send("Unknown maintenance command");
+    alarmNode.setProperty("message").setRetained(false).send("Unknown maintenance command");
     return false;
   }
   return true;
@@ -333,9 +329,9 @@ bool onPanelTime(const HomieRange& range, const String& command) {
     struct tm tm; // note tm_year is year since 1900, and tm_mon is month since January. Add offsets accordingly
     strptime(command.c_str(), "%Y-%m-%d %H:%M", &tm);
     dsc.setTime(1900 + tm.tm_year, 1 + tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, dscAccessCode.get());
-    homieNode.setProperty("message").setRetained(false).send("OK");
+    alarmNode.setProperty("message").setRetained(false).send("OK");
   } else {
-    homieNode.setProperty("message").setRetained(false).send("ERROR: DSC Keybus is not connected");
+    alarmNode.setProperty("message").setRetained(false).send("ERROR: DSC Keybus is not connected");
   }
   return true;
 }
@@ -358,19 +354,19 @@ void setup() {
   Homie.setSetupFunction(setupHandler).setLoopFunction(loopHandler);
   Homie.onEvent(onHomieEvent);
 
-  homieNode.advertise("refresh-status").settable(onRefreshStatus);
-  homieNode.advertise("maintenance").settable(onMaintenance);
-  homieNode.advertise("keypad").settable(onKeypad); // write to dsc alarm
-  homieNode.advertise("trouble");
-  homieNode.advertise("power-trouble");
-  homieNode.advertise("battery-trouble");
-  homieNode.advertise("fire-alarm-keypad");
-  homieNode.advertise("aux-alarm-keypad");
-  homieNode.advertise("panic-alarm-keypad");
-  homieNode.advertise("panel-time").settable(onPanelTime);
-  homieNode.advertise("debug").settable([](const HomieRange &range, const String &value) {
+  alarmNode.advertise("refresh-status").settable(onRefreshStatus);
+  alarmNode.advertise("maintenance").settable(onMaintenance);
+  alarmNode.advertise("keypad").settable(onKeypad); // write to dsc alarm
+  alarmNode.advertise("trouble");
+  alarmNode.advertise("power-trouble");
+  alarmNode.advertise("battery-trouble");
+  alarmNode.advertise("fire-alarm-keypad");
+  alarmNode.advertise("aux-alarm-keypad");
+  alarmNode.advertise("panic-alarm-keypad");
+  alarmNode.advertise("panel-time").settable(onPanelTime);
+  alarmNode.advertise("debug").settable([](const HomieRange &range, const String &value) {
     for (byte i = 0; i < dscPartitions; i++) {
-      homieNode.setProperty("debug").setRetained(false).send(String(i) + ": " + String(dsc.status[i], HEX));
+      alarmNode.setProperty("debug").setRetained(false).send(String(i) + ": " + String(dsc.status[i], HEX));
     }
     return true;
   });
@@ -380,16 +376,18 @@ void setup() {
 
   for (byte i = 0; i < dscPartitions; i++) { 
     if (dsc.status[i] == 0 || dsc.status[i] == 0xC7) {
-      partitions[i] = nullptr;
+      partitionNode[i] = nullptr;
       Serial << "Partition " + String(i+1) + " inactive" << endl;
       continue;
     }
 
-    char istr[3];
+    char istr[3]; 
     strcpy(partitionNames[i], "partition-");
-    strcat(partitionNames[i], itoa(i+1, istr, 10));
-    HomieNode *node = new HomieNode(partitionNames[i], partitionNames[i], "partition");
-    partitions[i] = node;
+    if (i < 99) { // avoid the highly unlikely buffer overflow
+      strcat(partitionNames[i], itoa(i+1, istr, 10));
+    }
+    HomieNode *node = new HomieNode(partitionNames[i], partitionNames[i], "partition"); // node id/names must remain allocated as HomieNode makes no copy of it
+    partitionNode[i] = node;
     node->advertise("away").settable([i](const HomieRange &range, const String &value) {
       if (value == "1" || value.equalsIgnoreCase("on") || value.equalsIgnoreCase("arm")) {
         arm(i+1, arm_away);

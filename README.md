@@ -161,7 +161,7 @@ Bridge mqtt:broker:mosquitto [ host="x.x.x.x", secure="false" ]
 ```
 
 ### dscalarm.things
-This assumes that you've defined an MQTT bridge thing called `mqt:broker:mosquito` (as above).
+This assumes that you've defined an MQTT bridge thing called `mqtt:broker:mosquito` (as above).
 ```
 Thing mqtt:topic:mosquitto:dsc "Alarm System" (mqtt:broker:mosquitto) @ "Alarm" {
     Channels:

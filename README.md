@@ -11,7 +11,7 @@ https://github.com/taligentx/dscKeybusInterface
 ## Features
 - MQTT Based
 - OTA Updateable (Thanks to Homie)
-- Configurable Wifi, MQTT, device id, and Alarm's access code. See the Setup Instructions below
+- Configurable Wifi, MQTT, device id, and Alarm's access code. See the [Setup Instructions](#initial-setup) below
 - Tested with OpenHAB, but it should work with other home automation systems. Let me know if you're using it with other home automation systems so I can update this document.
 
 ## Usage Examples
@@ -26,7 +26,7 @@ https://github.com/taligentx/dscKeybusInterface
 The Homie convention specifies the following syntax for MQTT topics:
 `homie/device-id/nodename/xxx`
 
-- The `device-id` can be set in Homie configuration - see **Initial Setup** below.
+- The `device-id` can be set in Homie configuration - see [Initial Setup](#initial-setup) below.
 
 ## Homie Nodes
 - `alarm` for the main alarm functionalities
@@ -54,7 +54,7 @@ Each partition is implemented as a homie node, so the base MQTT topic for partit
 - `homie/device-id/partition-1/exit-delay`: 0 | 1 (the system is in exit-delay state)
 - `homie/device-id/partition-1/fire`:  0 (no alarm) | 1 (fire alarm)
 - `homie/device-id/partition-1/access-code`: The access code used to arm/disarm
-- `homie/device-id/partition-1/lights`: Status lights in JSON { "ready": "ON|OFF", "armed": "ON|OFF", "memory": "ON|OFF", "bypass": "ON|OFF", "trouble": "ON|OFF", "program": "ON|OFF", "fire": "ON|OFF", "backlight": "ON|OFF"}
+- `homie/device-id/partition-1/lights`: Status lights in JSON `{ "ready": "ON|OFF", "armed": "ON|OFF", "memory": "ON|OFF", "bypass": "ON|OFF", "trouble": "ON|OFF", "program": "ON|OFF", "fire": "ON|OFF", "backlight": "ON|OFF"}`
 - ...
 - `homie/device-id/partition-N/xxxx` as above
 
@@ -82,7 +82,7 @@ These will be published when the alarm was triggered by zone motion detection du
 ### To set the panel date/time, publish to
 - `homie/device-id/alarm/panel-time/set`: "YYYY-MM-DD HH:mm"
 
-### To reboot the device, publish to
+### Miscellaneous
 - `homie/device-id/alarm/maintenance/set`: "reboot" to reboot
 - `homie/device-id/alarm/maintenance/set`: "dsc-stop" to stop dsc keybus interrupts
 - `homie/device-id/alarm/maintenance/set`: "dsc-start" to start dsc keybus interface
@@ -150,3 +150,81 @@ Note
 - My alarm would go off when I opened my panel enclosure. It uses zone 5 for this detection. In order to stop it from going off, bypass zone 5 using `*1` to enter bypass mode. The zone LEDs will light up for bypassed zones. To toggle the zone bypass, enter the 2 digit zone number, e.g. `05`. When zone 5 is lit up, it will be bypassed. Press `#` to return to ready state.
 
 - While working/testing the alarm, disconnect the internal / external speakers, and replace it with a 10K resistor. This will avoid disturbing the neighbours.
+
+## OpenHAB Example
+
+The Homie implementation in OpenHAB isn't working for me, so I created manual things/items files instead.
+
+### MQTT Broker thing
+I have a separate mqtt.things to define the broker bridge. It can be used/referenced by mqtt things in other files.
+```
+// Adjust the connection settings accordingly
+Bridge mqtt:broker:mosquitto [ host="x.x.x.x", secure="false" ]
+```
+
+### dscalarm.things
+This assumes that you've defined an MQTT bridge thing called `mqtt:broker:mosquito` (as above).
+```
+Thing mqtt:topic:mosquitto:dsc "Alarm System" (mqtt:broker:mosquitto) @ "Alarm" {
+    Channels:
+        Type contact : trouble "Trouble" [ stateTopic="homie/dsc-alarm/alarm/trouble" ]
+        Type contact : power_trouble "Power Trouble" [ stateTopic="homie/dsc-alarm/alarm/power-trouble" ]
+        Type contact : battery_trouble "Battery Trouble" [ stateTopic="homie/dsc-alarm/alarm/battery-trouble" ]
+        Type contact : fire_alarm_keypad "Fire Alarm Keypad" [ stateTopic="homie/dsc-alarm/alarm/fire-alarm-keypad" ]
+        Type contact : aux_alarm_keypad "Aux Alarm Keypad" [ stateTopic="homie/dsc-alarm/alarm/aux-alarm-keypad" ]
+        Type contact : panic_alarm_keypad "Panic Alarm Keypad" [ stateTopic="homie/dsc-alarm/alarm/panic-alarm-keypad" ]
+
+        Type switch : partition_1_away "Away Mode" [ stateTopic="homie/dsc-alarm/partition-1/away", commandTopic="homie/dsc-alarm/partition-1/away/set" ]
+        Type switch : partition_1_stay "Stay Mode" [ stateTopic="homie/dsc-alarm/partition-1/stay", commandTopic="homie/dsc-alarm/partition-1/stay/set" ]
+        Type contact : partition_1_alarm "Alarm" [ stateTopic="homie/dsc-alarm/partition-1/alarm" ]
+        Type contact : partition_1_fire "Fire Alarm" [ stateTopic="homie/dsc-alarm/partition-1/fire" ] 
+
+        Type contact : openzone_1 "Living Room" [ stateTopic="homie/dsc-alarm/alarm/openzone-1" ]
+        Type contact : openzone_2 "Lounge Room" [ stateTopic="homie/dsc-alarm/alarm/openzone-2" ]
+        Type contact : openzone_3 "Bedroom 1" [ stateTopic="homie/dsc-alarm/alarm/openzone-3" ]
+        Type contact : openzone_4 "Bedroom 2" [ stateTopic="homie/dsc-alarm/alarm/openzone-4" ]
+        Type contact : openzone_5 "Panel Open" [ stateTopic="homie/dsc-alarm/alarm/openzone-5" ]
+        Type contact : openzone_6 "Siren Tampered" [ stateTopic="homie/dsc-alarm/alarm/openzone-6" ]
+
+        Type contact : alarmzone_1 "Living Room Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-1" ]
+        Type contact : alarmzone_2 "Lounge Room Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-2" ]
+        Type contact : alarmzone_3 "Bedroom 1 Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-3" ]
+        Type contact : alarmzone_4 "Bedroom 2 Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-4" ]
+        Type contact : alarmzone_5 "Panel Open Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-5" ]
+        Type contact : alarmzone_6 "Siren Tampered Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-6" ]
+}        
+```
+
+### dscalarm.items
+Here the `Switchable` tag is to expose the alarm to Google Home.
+```
+Contact Alarm_Trouble "Trouble [MAP(dsc-alarm-indicator.map):%s]" { channel="mqtt:topic:mosquitto:dsc:trouble" }
+Switch Alarm_Armed "Alarm"  ["Switchable"] { autoupdate="false", channel="mqtt:topic:mosquitto:dsc:partition_1_away" }
+Contact Alarm_Triggered "Alarm Triggered" { channel="mqtt:topic:mosquitto:dsc:partition_1_alarm" }
+Contact Alarm_Living_Room_Sensor "Living Room Sensor" { channel="mqtt:topic:mosquitto:dsc:openzone_1" }
+Contact Alarm_Lounge_Room_Sensor "Lounge Room Sensor" { channel="mqtt:topic:mosquitto:dsc:openzone_2" }
+Contact Alarm_Bedroom1_Sensor "Bedroom 1 Sensor" { channel="mqtt:topic:mosquitto:dsc:openzone_3" }
+Contact Alarm_Bedroom2_Sensor "Bedroom 2 Sensor" { channel="mqtt:topic:mosquitto:dsc:openzone_4" }
+```
+
+### dcalarm.rules
+```
+val destinationEmail = "me@example.com"
+
+rule "Alarm Triggered"
+when
+    Item Alarm_Triggered changed to OPEN
+then
+    val message = now.toString("yyyy-MM-dd HH:mm:ss") + " The Security Alarm has been triggered!!!";
+    sendBroadcastNotification(message)
+    sendMail(destinationEmail, message, message)
+end
+```
+
+### dsc-alarm-indicator.map
+```
+1=Yes
+OPEN=Yes
+0=No
+CLOSED=No
+```

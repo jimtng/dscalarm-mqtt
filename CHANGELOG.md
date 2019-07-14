@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [2.0.0]
+## [2.0.0] 2019-06-30
 Changed to v2.x due to the breaking change in the partition topics
 
 ### Added

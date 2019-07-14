@@ -153,6 +153,8 @@ Note
 
 ## OpenHAB Example
 
+The Homie implementation in OpenHAB isn't working for me, so I created manual things/items files instead.
+
 ### MQTT Broker thing
 I have a separate mqtt.things to define the broker bridge. It can be used/referenced by mqtt things in other files.
 ```
@@ -217,4 +219,12 @@ then
     sendBroadcastNotification(message)
     sendMail(destinationEmail, message, message)
 end
+```
+
+### dsc-alarm-indicator.map
+```
+1=Yes
+OPEN=Yes
+0=No
+CLOSED=No
 ```

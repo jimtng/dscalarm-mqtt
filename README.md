@@ -153,8 +153,15 @@ Note
 
 ## OpenHAB Example
 
+### MQTT Broker thing
+I have a separate mqtt.things to define the broker bridge. It can be used/referenced by mqtt things in other files.
+```
+// Adjust the connection settings accordingly
+Bridge mqtt:broker:mosquitto [ host="x.x.x.x", secure="false" ]
+```
+
 ### dscalarm.things
-This assumes that you've defined an MQTT bridge thing called `mqt:broker:mosquito` in another .thing file.
+This assumes that you've defined an MQTT bridge thing called `mqt:broker:mosquito` (as above).
 ```
 Thing mqtt:topic:mosquitto:dsc "Alarm System" (mqtt:broker:mosquitto) @ "Alarm" {
     Channels:

@@ -95,6 +95,7 @@ So before sending a config update, stop the DSC interrupts by publishing to `hom
 Homie needs to be configured before it can connect to your Wifi / MQTT server. 
 Standard Homie configuration methods are of course supported. However, the easiest is to follow these steps:
 
+### Manual / CLI way
 - Create a file called config.json, replacing the values accordingly
 ```
 {
@@ -120,6 +121,10 @@ Standard Homie configuration methods are of course supported. However, the easie
 ```
 curl -X PUT http://192.168.123.1/config --header "Content-Type: application/json" -d @config.json
 ```
+
+### GUI Setup
+
+You can upload the GUI setup into your ESP8266 SPIFF. See https://github.com/homieiot/homie-esp8266/tree/develop/data/homie
 
 ## Updating The Stored Alarm Access Code
 

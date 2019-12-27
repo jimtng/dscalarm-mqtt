@@ -172,31 +172,31 @@ This assumes that you've defined an MQTT bridge thing called `mqtt:broker:mosqui
 ```
 Thing mqtt:topic:mosquitto:dsc "Alarm System" (mqtt:broker:mosquitto) @ "Alarm" {
     Channels:
-        Type contact : trouble "Trouble" [ stateTopic="homie/dsc-alarm/alarm/trouble" ]
-        Type contact : power_trouble "Power Trouble" [ stateTopic="homie/dsc-alarm/alarm/power-trouble" ]
-        Type contact : battery_trouble "Battery Trouble" [ stateTopic="homie/dsc-alarm/alarm/battery-trouble" ]
-        Type contact : fire_alarm_keypad "Fire Alarm Keypad" [ stateTopic="homie/dsc-alarm/alarm/fire-alarm-keypad" ]
-        Type contact : aux_alarm_keypad "Aux Alarm Keypad" [ stateTopic="homie/dsc-alarm/alarm/aux-alarm-keypad" ]
-        Type contact : panic_alarm_keypad "Panic Alarm Keypad" [ stateTopic="homie/dsc-alarm/alarm/panic-alarm-keypad" ]
+        Type contact : trouble "Trouble" [ stateTopic="homie/dsc-alarm/alarm/trouble", on="1", off="0" ]
+        Type contact : power_trouble "Power Trouble" [ stateTopic="homie/dsc-alarm/alarm/power-trouble", on="1", off="0" ]
+        Type contact : battery_trouble "Battery Trouble" [ stateTopic="homie/dsc-alarm/alarm/battery-trouble", on="1", off="0" ]
+        Type contact : fire_alarm_keypad "Fire Alarm Keypad" [ stateTopic="homie/dsc-alarm/alarm/fire-alarm-keypad", on="1", off="0" ]
+        Type contact : aux_alarm_keypad "Aux Alarm Keypad" [ stateTopic="homie/dsc-alarm/alarm/aux-alarm-keypad", on="1", off="0" ]
+        Type contact : panic_alarm_keypad "Panic Alarm Keypad" [ stateTopic="homie/dsc-alarm/alarm/panic-alarm-keypad", on="1", off="0" ]
 
-        Type switch : partition_1_away "Away Mode" [ stateTopic="homie/dsc-alarm/partition-1/away", commandTopic="homie/dsc-alarm/partition-1/away/set" ]
-        Type switch : partition_1_stay "Stay Mode" [ stateTopic="homie/dsc-alarm/partition-1/stay", commandTopic="homie/dsc-alarm/partition-1/stay/set" ]
-        Type contact : partition_1_alarm "Alarm" [ stateTopic="homie/dsc-alarm/partition-1/alarm" ]
-        Type contact : partition_1_fire "Fire Alarm" [ stateTopic="homie/dsc-alarm/partition-1/fire" ] 
+        Type switch : partition_1_away "Away Mode" [ stateTopic="homie/dsc-alarm/partition-1/away", commandTopic="homie/dsc-alarm/partition-1/away/set", on="1", off="0" ]
+        Type switch : partition_1_stay "Stay Mode" [ stateTopic="homie/dsc-alarm/partition-1/stay", commandTopic="homie/dsc-alarm/partition-1/stay/set", on="1", off="0" ]
+        Type contact : partition_1_alarm "Alarm" [ stateTopic="homie/dsc-alarm/partition-1/alarm", on="1", off="0" ]
+        Type contact : partition_1_fire "Fire Alarm" [ stateTopic="homie/dsc-alarm/partition-1/fire", on="1", off="0" ] 
 
-        Type contact : openzone_1 "Living Room" [ stateTopic="homie/dsc-alarm/alarm/openzone-1" ]
-        Type contact : openzone_2 "Lounge Room" [ stateTopic="homie/dsc-alarm/alarm/openzone-2" ]
-        Type contact : openzone_3 "Bedroom 1" [ stateTopic="homie/dsc-alarm/alarm/openzone-3" ]
-        Type contact : openzone_4 "Bedroom 2" [ stateTopic="homie/dsc-alarm/alarm/openzone-4" ]
-        Type contact : openzone_5 "Panel Open" [ stateTopic="homie/dsc-alarm/alarm/openzone-5" ]
-        Type contact : openzone_6 "Siren Tampered" [ stateTopic="homie/dsc-alarm/alarm/openzone-6" ]
+        Type contact : openzone_1 "Living Room" [ stateTopic="homie/dsc-alarm/alarm/openzone-1", on="1", off="0" ]
+        Type contact : openzone_2 "Lounge Room" [ stateTopic="homie/dsc-alarm/alarm/openzone-2", on="1", off="0" ]
+        Type contact : openzone_3 "Bedroom 1" [ stateTopic="homie/dsc-alarm/alarm/openzone-3", on="1", off="0" ]
+        Type contact : openzone_4 "Bedroom 2" [ stateTopic="homie/dsc-alarm/alarm/openzone-4", on="1", off="0" ]
+        Type contact : openzone_5 "Panel Open" [ stateTopic="homie/dsc-alarm/alarm/openzone-5", on="1", off="0" ]
+        Type contact : openzone_6 "Siren Tampered" [ stateTopic="homie/dsc-alarm/alarm/openzone-6", on="1", off="0" ]
 
-        Type contact : alarmzone_1 "Living Room Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-1" ]
-        Type contact : alarmzone_2 "Lounge Room Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-2" ]
-        Type contact : alarmzone_3 "Bedroom 1 Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-3" ]
-        Type contact : alarmzone_4 "Bedroom 2 Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-4" ]
-        Type contact : alarmzone_5 "Panel Open Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-5" ]
-        Type contact : alarmzone_6 "Siren Tampered Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-6" ]
+        Type contact : alarmzone_1 "Living Room Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-1", on="1", off="0" ]
+        Type contact : alarmzone_2 "Lounge Room Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-2", on="1", off="0" ]
+        Type contact : alarmzone_3 "Bedroom 1 Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-3", on="1", off="0" ]
+        Type contact : alarmzone_4 "Bedroom 2 Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-4", on="1", off="0" ]
+        Type contact : alarmzone_5 "Panel Open Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-5", on="1", off="0" ]
+        Type contact : alarmzone_6 "Siren Tampered Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-6", on="1", off="0" ]
 }        
 ```
 

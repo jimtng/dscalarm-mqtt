@@ -1,7 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [3.0.0] 2023-01-20
+This is a completely rewritten implementation. Instead of using the Homie convention and the homie-esp8266 library,
+this version is implemented using ESPHome.
+
+BREAKING CHANGES!!!
+All the mqtt topics have changed! See README.md for more details.
 
 ## [2.0.0] 2019-06-30
 Changed to v2.x due to the breaking change in the partition topics

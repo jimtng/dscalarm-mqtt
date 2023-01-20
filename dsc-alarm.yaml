@@ -1,0 +1,250 @@
+substitutions:
+  # Adjust accordingly
+  device_name: dsc-alarm
+  friendly_name: Alarm System
+
+  timezone: Australia/Brisbane
+  # set this to your local NTP server if you have one
+  ntp_server: 2.pool.ntp.org
+
+  access_code: !secret alarm_access_code
+
+  dsc_clock_pin: D1
+  dsc_read_pin: D2
+  dsc_write_pin: D8
+
+  max_zone: "6"
+  max_partition: "1"
+
+esp8266:
+  # change this to match your board
+  board: d1_mini
+
+packages:
+  common: !include common.yaml
+
+esphome:
+  includes:
+    - includes/dscAlarm.h
+  libraries:
+    - taligentx/dscKeybusInterface@^3.0
+
+ota:
+  on_begin:
+    - lambda: ((DSCKeybus*)id(dsc_keybus))->disconnect();
+  on_error:
+    - lambda: ((DSCKeybus*)id(dsc_keybus))->connect();
+
+time:
+  - platform: sntp
+    id: ntp_time
+    timezone: ${timezone}
+    servers: ["${ntp_server}", 0.pool.ntp.org, 1.pool.ntp.org]
+    on_time_sync:
+      then:
+        - lambda: |-
+            ESP_LOGI("main", "System clock synchronized %s", id(ntp_time).now().strftime("%F %R").c_str());
+
+    on_time:
+      - seconds: 0
+        minutes: 0
+        hours: 9
+        days_of_month: 1
+        then:
+          - lambda: |-
+              auto time = id(ntp_time).now();
+              ESP_LOGI("main", "Updating Panel time to %s", time.strftime("%F %R").c_str());
+              ((DSCKeybus*)id(dsc_keybus))->setTime(time.year, time.month, time.day_of_month, time.hour, time.minute);
+
+mqtt:
+  on_connect:
+    - delay: 1s
+    - lambda: ((DSCKeybus*)id(dsc_keybus))->resetStatus();
+
+  on_message:
+    - topic: ${device_name}/command
+      payload: disarm
+      then:
+        - lambda: |-
+            for (auto i = 1; i <= ${max_partition}; i++) {
+              ((DSCKeybus*)id(dsc_keybus))->disarm(i);
+            }
+
+    - topic: ${device_name}/command
+      payload: arm_away
+      then:
+        - lambda: |-
+            for (auto i = 1; i <= ${max_partition}; i++) {
+              ((DSCKeybus*)id(dsc_keybus))->armAway(i);
+            }
+
+    - topic: ${device_name}/command
+      payload: arm_stay
+      then:
+        - lambda: |-
+            for (auto i = 1; i <= ${max_partition}; i++) {
+              ((DSCKeybus*)id(dsc_keybus))->armStay(i);
+            }
+
+    - topic: ${device_name}/command
+      payload: trigger_fire
+      then:
+        - lambda: ((DSCKeybus*)id(dsc_keybus))->triggerFireAlarm();
+
+    - topic: ${device_name}/command
+      payload: trigger_panic
+      then:
+        - lambda: ((DSCKeybus*)id(dsc_keybus))->triggerPanicAlarm();
+
+    - topic: ${device_name}/command
+      payload: reboot
+      then:
+        - lambda: App.safe_reboot();
+
+    - topic: ${device_name}/command
+      payload: reset-status
+      then:
+        - lambda: ((DSCKeybus*)id(dsc_keybus))->resetStatus();
+
+    - topic: ${device_name}/write
+      then:
+        - lambda: ((DSCKeybus*)id(dsc_keybus))->write(x);
+
+    # Updates partition 1's time from NTP
+    - topic: ${device_name}/panel-time/update
+      payload: now
+      then:
+        - lambda: |-
+            auto time = id(ntp_time).now();
+            if (time.is_valid()) {
+              ((DSCKeybus*)id(dsc_keybus))->setTime(time.year, time.month, time.day_of_month, time.hour, time.minute);
+            }
+
+custom_component:
+  - lambda: |-
+      auto dscKeybus = new DSCKeybus(${dsc_clock_pin}, ${dsc_read_pin}, ${dsc_write_pin}, "${access_code}");
+
+      auto on_or_off = [](bool value) { return (std::string)(value ? "on" : "off"); };
+      auto extract_number = [](const char *prefix, const std::string &value) {
+        auto start = strlen(prefix);
+        auto end = value.find('/', start);
+        return parse_number<uint8_t>(value.substr(start, end-start)).value_or(0);
+      };
+
+      dscKeybus->onKeybusConnectionChange([&](bool isConnected) {
+        id(mqtt_id)->publish("${device_name}/keybus", on_or_off(isConnected), 0, true);
+      });
+
+      dscKeybus->onKeypadStatusChange([&](DSCKeybus::KeypadStatus statusType, bool state) {
+        std::string topic = "${device_name}/";
+        switch(statusType) {
+          case DSCKeybus::KeypadStatus::TROUBLE: topic += "trouble"; break;
+          case DSCKeybus::KeypadStatus::BATTERY_TROUBLE: topic += "battery-trouble"; break;
+          case DSCKeybus::KeypadStatus::POWER_TROUBLE: topic += "power-trouble"; break;
+        }
+        id(mqtt_id)->publish(topic, on_or_off(state), 0, true);
+      });
+
+      dscKeybus->onKeypadAlarm([&](DSCKeybus::KeypadAlarm alarmType) {
+        std::string type;
+        switch (alarmType) {
+          case DSCKeybus::KeypadAlarm::PANIC_ALARM: type = "panic"; break;
+          case DSCKeybus::KeypadAlarm::AUX_ALARM: type = "aux"; break;
+          case DSCKeybus::KeypadAlarm::FIRE_ALARM: type = "fire"; break;
+        }
+        id(mqtt_id)->publish("${device_name}/keypad/alarm", type);
+      });
+
+      dscKeybus->onPanelTimeChange([&](std::string time) {
+        id(mqtt_id)->publish("${device_name}/panel-time", time);
+      });
+
+      dscKeybus->onLightStatusChange([&](uint8_t partition, byte lights) {
+        if (partition > ${max_partition}) {
+          return;
+        }
+
+        static byte previousLights[${max_partition}];
+
+        std::string topic = str_sprintf("${device_name}/partition/%d/lights/", partition);
+        const char* lightNames[] = { "ready", "armed", "memory", "bypass", "trouble", "program", "fire", "backlight" };
+
+        for (byte i = 0; i < 8; i++) {
+          bool light = bitRead(lights, i);
+          if (light != bitRead(previousLights[partition-1], i)) {
+            id(mqtt_id)->publish(topic + lightNames[i], on_or_off(light));
+          }
+        }
+
+        previousLights[partition - 1] = lights;
+      });
+
+      dscKeybus->onPartitionArmedChange([&](uint8_t partition, bool armed, bool armedStay, bool armedAway) {
+        if (partition > ${max_partition}) {
+          return;
+        }
+
+        std::string topic = str_sprintf("${device_name}/partition/%d/", partition);
+        id(mqtt_id)->publish(topic + "armed", on_or_off(armed), 0, true);
+        id(mqtt_id)->publish(topic + "armed-stay", on_or_off(armedStay), 0, true);
+        id(mqtt_id)->publish(topic + "armed-away", on_or_off(armedAway), 0, true);
+      });
+
+      id(mqtt_id)->subscribe("${device_name}/partition/+/armed/set", [=](const std::string &topic, const std::string &payload) {
+        auto partition = extract_number("${device_name}/partition/", topic);
+        if (partition > dscPartitions) {
+          ESP_LOGE("main", "Partition out of range: %d", partition);
+          return;
+        }
+
+        switch(parse_on_off(payload.c_str())) {
+          case PARSE_ON: dscKeybus->armAway(partition); break;
+          case PARSE_OFF: dscKeybus->disarm(partition); break;
+        }
+      });
+
+      dscKeybus->onPartitionAlarmChange([&](uint8_t partition, bool triggered) {
+        if (partition > ${max_partition}) {
+          return;
+        }
+
+        std::string topic = str_sprintf("${device_name}/partition/%d/alarm", partition);
+        id(mqtt_id)->publish(topic, on_or_off(triggered), 0, true);
+      });
+
+      dscKeybus->onPartitionStatusChange([&](uint8_t partition, DSCKeybus::PartitionStatus statusCode) {
+        if (partition > ${max_partition}) {
+          return;
+        }
+        std::string status;
+        switch(statusCode) {
+          case DSCKeybus::PartitionStatus::DISARMED: status = "disarmed"; break;
+          case DSCKeybus::PartitionStatus::ARMED_STAY: status = "armed_stay"; break;
+          case DSCKeybus::PartitionStatus::ARMED_AWAY: status = "armed_away"; break;
+          case DSCKeybus::PartitionStatus::EXIT_DELAY: status = "exit_delay"; break;
+          case DSCKeybus::PartitionStatus::TRIGGERED: status = "triggered"; break;
+        }
+        std::string topic = str_sprintf("${device_name}/partition/%d/state", partition);
+        id(mqtt_id)->publish(topic, status, 0, true);
+      });
+
+      dscKeybus->onZoneStatusChange([&](uint8_t zone, bool state) {
+        if (zone > ${max_zone}) {
+          return;
+        }
+        std::string topic = str_sprintf("${device_name}/zone/%d/motion", zone);
+        id(mqtt_id)->publish(topic, on_or_off(state));
+      });
+
+      dscKeybus->onZoneAlarmChange([&](uint8_t zone, bool state) {
+        if (zone > ${max_zone}) {
+          return;
+        }
+        std::string topic = str_sprintf("${device_name}/zone/%d/alarm", zone);
+        id(mqtt_id)->publish(topic, on_or_off(state));
+      });
+
+      return {dscKeybus};
+
+    components:
+      - id: dsc_keybus

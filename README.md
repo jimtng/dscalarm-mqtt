@@ -1,8 +1,12 @@
 # dscalarm-mqtt
 
-A DSC Alarm bridge to MQTT, intended to run on an ESP8266 device connected to your DSC Alarm system's key bus. It allows you to get notifications of alarm events, arm, disarm and send keypad commands through MQTT over wifi. This enables the integration of your DSC alarm system into a home automation platform such as OpenHAB, Home-assistant, etc.
+A DSC Alarm bridge to MQTT, intended to run on an ESP8266 or ESP32 device connected to your 
+DSC Alarm system's key bus. It allows you to get notifications of alarm events, arm, disarm
+and send keypad commands through MQTT over wifi. This enables the integration of your 
+DSC alarm system into a home automation platform, primarily written for OpenHAB.
 
-It uses the dscKeybusInterface library to communicate with the DSC alarm, and the Homie convention for MQTT communication.
+It uses the dscKeybusInterface library to communicate with the DSC alarm, and ESPHome for
+the main infrastruture such as OTA, configuration, etc.
 
 For a detailed wiring diagram, please see:
 https://github.com/taligentx/dscKeybusInterface
@@ -10,206 +14,134 @@ https://github.com/taligentx/dscKeybusInterface
 
 ## Features
 - MQTT Based
-- OTA Updateable (Thanks to Homie)
-- Configurable Wifi, MQTT, device id, and Alarm's access code. See the [Setup Instructions](#initial-setup) below
-- Tested with OpenHAB, but it should work with other home automation systems. Let me know if you're using it with other home automation systems so I can update this document.
+- OTA Updateable (Thanks to ESPHome)
+- Updates the DSC Panel's internal clock from NTP
+- Tested with OpenHAB, but it should work with other home automation systems.
 
-## Usage Examples
-- To arm partition 1 to away mode, publish to `homie/device-id/partition-1/away/set`: `1`
-- To disarm it, publish to `homie/device-id/partition-1/away/set`: `0`
-- To monitor motions on zone 1 (regardless of armed status), subscribe to `homie/device-id/alarm/openzone-1`
-- To know partition 1 alarm has been triggered, subscribe to `homie/device-id/partition-1/alarm`
-- When zone 3 triggered an alarm `homie/device-id/alarm/alarmzone-3` will be published with a value of `1`
-- To know whether partition 1 is armed, subscribe to `homie/device-id/partition-1/away` for away mode, or `homie/device-id/partition-1/stay` for stay mode
+## ESPHome
 
-## Homie
-The Homie convention specifies the following syntax for MQTT topics:
-`homie/device-id/nodename/xxx`
+Please see https://esphome.io for information on how to build / upload this project.
 
-- The `device-id` can be set in Homie configuration - see [Initial Setup](#initial-setup) below.
-
-## Homie Nodes
-- `alarm` for the main alarm functionalities
-- `partition-N` for partition related status/commands
-
-So for `alarm` node, the full MQTT topics will start with `homie/device-id/alarm/`, and for the `partition-N` the full MQTT topics will be `homie/device-id/partition-N/`
 
 ## MQTT Topics:
+All topics are prefixed with `device_name/` which by default is `dsc-alarm` but this can be 
+changed in the yaml file.
 
-### General MQTT topics:
-- `homie/device-id/alarm/trouble` this corresponds to the "Trouble" light / status of the alarm
-- `homie/device-id/alarm/power-trouble`
-- `homie/device-id/alarm/battery-trouble`
-- `homie/device-id/alarm/fire-alarm-keypad` 
-- `homie/device-id/alarm/aux-alarm-keypad`
-- `homie/device-id/alarm/panic-alarm-keypad`
-- `homie/device-id/alarm/panel-time` provides the date/time stored in the alarm system formatted as YYYY-MM-DD HH:mm
+### MQTT messages from the device
 
-### Partitions:
-Each partition is implemented as a homie node, so the base MQTT topic for partition 1 is `homie/device-id/partition-N/`
-- `homie/device-id/partition-1/away`:  0 (disarmed) | 1 (armed away)
-- `homie/device-id/partition-1/stay`:  0 (disarmed) | 1 (armed stay)
-- `homie/device-id/partition-1/alarm`: 0 (no alarm) | 1 (the alarm has been triggered)
-- `homie/device-id/partition-1/entry-delay`: 0 | 1 (the system is in entry-delay state)
-- `homie/device-id/partition-1/exit-delay`: 0 | 1 (the system is in exit-delay state)
-- `homie/device-id/partition-1/fire`:  0 (no alarm) | 1 (fire alarm)
-- `homie/device-id/partition-1/access-code`: The access code used to arm/disarm
-- `homie/device-id/partition-1/lights`: Status lights in JSON `{ "ready": "ON|OFF", "armed": "ON|OFF", "memory": "ON|OFF", "bypass": "ON|OFF", "trouble": "ON|OFF", "program": "ON|OFF", "fire": "ON|OFF", "backlight": "ON|OFF"}`
-- ...
-- `homie/device-id/partition-N/xxxx` as above
+These topics are published by the device.
+
+| Topic                          | Payload                                                                                                                                  |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `status`                       | `online` or `offline`. This indicates whether esphome is connected to mqtt.                                                              |
+| `keybus`                       | `on` when the keybus is connected. `off` otherwise.                                                                                      |
+| `trouble`                      | `on` when the panel encountered a problem. `off` otherwise.                                                                              |
+| `power-trouble`                | `on` when the panel has lost AC power. `off` otherwise.                                                                                  |
+| `battery-trouble`              | `on` when it has problems with the battery. `off` otherwise.                                                                             |
+| `keypad/alarm`                 | The device will publish a message to this topic when the corresponding alarm was triggered. Valid values are: `panic`, `aux`, and `fire` |
+| `panel-time`                   | The device will publish the current time maintained by the alarm panel in the format of `YYYY-MM-DD HH:MM`                               |
+| `partition/N/alarm`            | `on` when the alarm was triggered. `off` otherwise.                                                                                      |
+| `partition/N/armed`            | `on` when the alarm is armed. `off` otherwise.                                                                                           |
+| `partition/N/armed-stay`       | `on` when the alarm is armed in away mode. `off` otherwise.                                                                              |
+| `partition/N/armed-away`       | `on` when the alarm is armed in stay mode. `off` otherwise.                                                                              |
+| `partition/N/state`            | The current state of partition `N`: `disarmed`, `exit_delay`, `armed_away`, `armed_stay`, or `triggered`                                 |
+| `partition/N/lights/ready`     | `on` or `off` the current status of the ready LED.                                                                                       |
+| `partition/N/lights/armed`     | `on` or `off`                                                                                                                            |
+| `partition/N/lights/memory`    | `on` or `off`                                                                                                                            |
+| `partition/N/lights/bypass`    | `on` or `off`                                                                                                                            |
+| `partition/N/lights/trouble`   | `on` or `off`                                                                                                                            |
+| `partition/N/lights/program`   | `on` or `off`                                                                                                                            |
+| `partition/N/lights/fire`      | `on` or `off`                                                                                                                            |
+| `partition/N/lights/backlight` | `on` or `off`                                                                                                                            |
+
+### MQTT commands
+Publish an MQTT message to the following topics in order to control the device.
+
+| Topic                   | Payload                                                                                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `command`               | `disarm`: disarm all partitions using the configured access code.                                                                                    |
+| `command`               | `arm_away`: arm all partitions to away mode                                                                                                          |
+| `command`               | `arm_stay`: arm all partitions to stay mode                                                                                                          |
+| `command`               | `trigger_fire`: trigger the fire alarm                                                                                                               |
+| `command`               | `reboot`: reboot the esp device                                                                                                                      |
+| `command`               | `reset-status`: resets the internal status so all values are re-published.                                                                           |
+| `write`                 | Sends the given payload directly to the DSC keybus. This can be used to program the alarm, for example.                                              |
+| `panel-time/update`     | `now`: instructs the device to update the DSC alarm's internal clock based on the ESP's NTP clock. Normally this is done automatically once a month. |
+| `partition/N/armed/set` | `on` to arm partition `N`. `off` to disarm it.                                                                                                       |
+| `zone/N/motion`         | `on` when motion is detected. `off` otherwise.                                                                                                       |
+| `zone/N/alarm`          | `on` when an alarm is triggered by this zone. `off` otherwise.                                                                                       |
 
 ### To arm/disarm a partition, publish to:
-- `homie/device-id/partition-N/away/set`: 1 | on | arm = arm partition N - away mode. 0 | off | disarm = disarm
-- `homie/device-id/partition-N/stay/set`: 1 | on | arm = arm partition N - stay mode. 0 | off | disarm = disarm
-
-### Zones:
-#### General Motion Detection
-These will be published whenever motion is detected within the zone, regardless of the armed state:
-- `homie/device-id/alarm/openzone-1`: 0 (no movement) | 1 (movement detected)
-- ...
-- `homie/device-id/alarm/openzone-N`: as above
-
-#### Triggered Alarm Zones
-These will be published when the alarm was triggered by zone motion detection during the armed state:
-- `homie/device-id/alarm/alarmzone-1`: 0|1
-- ...
-- `homie/device-id/alarm/alarmzone-N`: as above
-
-## Commands
-### To request status refresh, publish to
-- `homie/device-id/alarm/refresh-status/set`: 1
-
-### To set the panel date/time, publish to
-- `homie/device-id/alarm/panel-time/set`: "YYYY-MM-DD HH:mm"
-
-### Miscellaneous
-- `homie/device-id/alarm/maintenance/set`: "reboot" to reboot
-- `homie/device-id/alarm/maintenance/set`: "dsc-stop" to stop dsc keybus interrupts
-- `homie/device-id/alarm/maintenance/set`: "dsc-start" to start dsc keybus interface
-
-The DSC Keybus interrupts seem to interfere with the OTA and Config update operation (when publishing to `homie/device-id/$implementation/config/set`), causing the ESP8266 to reset, and in the case of configuration update, to cause a corruption in the Homie configuration file and put Homie into the initial configuration mode.
-
-So before sending a config update, stop the DSC interrupts by publishing to `homie/device-id/alarm/maintenance/set`: "dsc-stop". Once the config update has been made, restart the DSC interface using `homie/device-id/alarm/maintenance/set`: "dsc-start" or sending a reboot request.
-
-## Initial Setup
-Homie needs to be configured before it can connect to your Wifi / MQTT server. 
-Standard Homie configuration methods are of course supported. However, the easiest is to follow these steps:
-
-### Manual / CLI way
-- Create a file called config.json, replacing the values accordingly
-```
-{
-    "wifi": {
-        "ssid":"Your-Wifi-SSID",
-        "password":"WifiKey"
-    },
-    "mqtt":{
-        "host":"YOUR-MQTT-SERVER",
-        "port":1883,
-        "auth":false,
-        "username":"",
-        "password":""
-    },
-    "name":"DSC Alarm",
-    "ota":{"enabled":true},
-    "device_id":"dsc-alarm",
-    "settings":{"access-code":"1234"}
-}
-```
-- Connect to **"Homie-xxxxx"** access point
-- Type:
-```
-curl -X PUT http://192.168.123.1/config --header "Content-Type: application/json" -d @config.json
-```
-
-### GUI Setup
-
-You can upload the GUI setup into your ESP8266 SPIFF. See https://github.com/homieiot/homie-esp8266/tree/develop/data/homie
-
-## Updating The Stored Alarm Access Code
-
-Before updating Homie config, the DSC interface needs to be deactivated / stopped, because it interferes with writing the configuration file. To do this, publish an MQTT message to
-`homie/device-id/alarm/maintenance/set` `dsc-stop`
-
-After setting the configuration, reactivate the DSC interface by publishing to `homie/device-id/alarm/maintenance/set` `dsc-start`
-
-To change/update your access code that's stored on the device once it's operational (i.e. connected to your MQTT server), publish to
-`homie/device-id/$implementation/config/set {"settings":{"access-code":"1234"}}`
-e.g.
-```
-mosquitto_pub -t 'homie/device-id/alarm/maintenance/set' -m dsc-stop
-mosquitto_pub -t 'homie/device-id/$implementation/config/set' -m '{"settings":{"access-code":"1234"}}'
-mosquitto_pub -t 'homie/device-id/alarm/maintenance/set' -m dsc-start
-```
-
-Note 
-- The last step may be unnecessary because the ESP8266 seems to crash and restart, but the config gets updated.
-- You can update the wifi / mqtt connection details in the same manner
+- `dsc-alarm/partition/N/armed/set`: `on` to arm in away mode, `off` to disarm
 
 ## Library Dependencies
-- [Homie-esp8266 v3.x](https://github.com/homieiot/homie-esp8266.git#develop-v3)
-- [dscKeybusReader v1.3](https://github.com/taligentx/dscKeybusInterface.git#develop)
+- [dscKeybusReader v3.0](https://github.com/taligentx/dscKeybusInterface.git)
 
 ## Tips When Working with the Alarm
 
-- My alarm would go off when I opened my panel enclosure. It uses zone 5 for this detection. In order to stop it from going off, bypass zone 5 using `*1` to enter bypass mode. The zone LEDs will light up for bypassed zones. To toggle the zone bypass, enter the 2 digit zone number, e.g. `05`. When zone 5 is lit up, it will be bypassed. Press `#` to return to ready state.
+- My alarm would go off when I opened my panel enclosure. It uses zone 5 for this detection. 
+  In order to stop it from going off, bypass zone 5 using `*1` to enter bypass mode. 
+  The zone LEDs will light up for bypassed zones. To toggle the zone bypass, enter the 
+  2 digit zone number, e.g. `05`. When zone 5 is lit up, it will be bypassed. 
+  Press `#` to return to ready state.
 
-- While working/testing the alarm, disconnect the internal / external speakers, and replace it with a 10K resistor. This will avoid disturbing the neighbours.
+- While working/testing the alarm, disconnect the internal / external speakers, and replace it 
+  with a 10K resistor. This will avoid disturbing the neighbours.
 
-## OpenHAB Example
-
-The Homie implementation in OpenHAB isn't working for me, so I created manual things/items files instead.
+## OpenHAB Integration
 
 ### MQTT Broker thing
 I have a separate mqtt.things to define the broker bridge. It can be used/referenced by mqtt things in other files.
-```
+
+```java
 // Adjust the connection settings accordingly
 Bridge mqtt:broker:mosquitto [ host="x.x.x.x", secure="false" ]
 ```
 
 ### dscalarm.things
+
 This assumes that you've defined an MQTT bridge thing called `mqtt:broker:mosquito` (as above).
-```
-Thing mqtt:topic:mosquitto:dsc "Alarm System" (mqtt:broker:mosquitto) @ "Alarm" {
+
+```java
+Thing mqtt:topic:dsc "Alarm System" (mqtt:broker:mosquitto) {
     Channels:
-        Type contact : trouble "Trouble" [ stateTopic="homie/dsc-alarm/alarm/trouble", on="1", off="0" ]
-        Type contact : power_trouble "Power Trouble" [ stateTopic="homie/dsc-alarm/alarm/power-trouble", on="1", off="0" ]
-        Type contact : battery_trouble "Battery Trouble" [ stateTopic="homie/dsc-alarm/alarm/battery-trouble", on="1", off="0" ]
-        Type contact : fire_alarm_keypad "Fire Alarm Keypad" [ stateTopic="homie/dsc-alarm/alarm/fire-alarm-keypad", on="1", off="0" ]
-        Type contact : aux_alarm_keypad "Aux Alarm Keypad" [ stateTopic="homie/dsc-alarm/alarm/aux-alarm-keypad", on="1", off="0" ]
-        Type contact : panic_alarm_keypad "Panic Alarm Keypad" [ stateTopic="homie/dsc-alarm/alarm/panic-alarm-keypad", on="1", off="0" ]
+        Type contact : trouble "Trouble" [ stateTopic="dsc-alarm/trouble", on="on", off="off" ]
+        Type contact : power_trouble "Power Trouble" [ stateTopic="dsc-alarm/power-trouble", on="on", off="off" ]
+        Type contact : battery_trouble "Battery Trouble" [ stateTopic="dsc-alarm/battery-trouble", on="on", off="off" ]
+        Type string  : keypad_alarm "Keypad Alarm" [ stateTopic="dsc-alarm/keypad/alarm" ]
 
-        Type switch : partition_1_away "Away Mode" [ stateTopic="homie/dsc-alarm/partition-1/away", commandTopic="homie/dsc-alarm/partition-1/away/set", on="1", off="0" ]
-        Type switch : partition_1_stay "Stay Mode" [ stateTopic="homie/dsc-alarm/partition-1/stay", commandTopic="homie/dsc-alarm/partition-1/stay/set", on="1", off="0" ]
-        Type contact : partition_1_alarm "Alarm" [ stateTopic="homie/dsc-alarm/partition-1/alarm", on="1", off="0" ]
-        Type contact : partition_1_fire "Fire Alarm" [ stateTopic="homie/dsc-alarm/partition-1/fire", on="1", off="0" ] 
+        Type switch  : partition_1_armed "Alarm Armed" [ stateTopic="dsc-alarm/partition/1/armed", commandTopic="dsc-alarm/partition/1/armed/set" ]
 
-        Type contact : openzone_1 "Living Room" [ stateTopic="homie/dsc-alarm/alarm/openzone-1", on="1", off="0" ]
-        Type contact : openzone_2 "Lounge Room" [ stateTopic="homie/dsc-alarm/alarm/openzone-2", on="1", off="0" ]
-        Type contact : openzone_3 "Bedroom 1" [ stateTopic="homie/dsc-alarm/alarm/openzone-3", on="1", off="0" ]
-        Type contact : openzone_4 "Bedroom 2" [ stateTopic="homie/dsc-alarm/alarm/openzone-4", on="1", off="0" ]
-        Type contact : openzone_5 "Panel Open" [ stateTopic="homie/dsc-alarm/alarm/openzone-5", on="1", off="0" ]
-        Type contact : openzone_6 "Siren Tampered" [ stateTopic="homie/dsc-alarm/alarm/openzone-6", on="1", off="0" ]
+        Type contact : partition_1_alarm "Alarm" [ stateTopic="dsc-alarm/partition/1/alarm", on="on", off="off" ]
+        Type string  : partition_1_state "State" [ stateTopic="dsc-alarm/partition/1/state" ]
 
-        Type contact : alarmzone_1 "Living Room Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-1", on="1", off="0" ]
-        Type contact : alarmzone_2 "Lounge Room Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-2", on="1", off="0" ]
-        Type contact : alarmzone_3 "Bedroom 1 Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-3", on="1", off="0" ]
-        Type contact : alarmzone_4 "Bedroom 2 Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-4", on="1", off="0" ]
-        Type contact : alarmzone_5 "Panel Open Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-5", on="1", off="0" ]
-        Type contact : alarmzone_6 "Siren Tampered Triggered" [ stateTopic="homie/dsc-alarm/alarm/alarmzone-6", on="1", off="0" ]
-}        
+        Type contact : motionzone_1 "Living Room" [ stateTopic="dsc-alarm/zone/1/motion", on="on", off="off" ]
+        Type contact : motionzone_2 "Lounge Room" [ stateTopic="dsc-alarm/zone/2/motion", on="on", off="off" ]
+        Type contact : motionzone_3 "Master Bedroom" [ stateTopic="dsc-alarm/zone/3/motion", on="on", off="off" ]
+        Type contact : motionzone_4 "Study Room" [ stateTopic="dsc-alarm/zone/4/motion", on="on", off="off" ]
+        Type contact : motionzone_5 "Panel Open" [ stateTopic="dsc-alarm/zone/5/motion", on="on", off="off" ]
+        Type contact : motionzone_6 "Siren Tampered" [ stateTopic="dsc-alarm/zone/6/motion", on="on", off="off" ]
+
+        Type contact : alarmzone_1 "Living Room Triggered" [ stateTopic="dsc-alarm/zone/1/alarm", on="on", off="off" ]
+        Type contact : alarmzone_2 "Lounge Room Triggered" [ stateTopic="dsc-alarm/zone/2/alarm", on="on", off="off" ]
+        Type contact : alarmzone_3 "Master Bedroom Triggered" [ stateTopic="dsc-alarm/zone/3/alarm", on="on", off="off" ]
+        Type contact : alarmzone_4 "Study Triggered" [ stateTopic="dsc-alarm/zone/4/alarm", on="on", off="off" ]
+        Type contact : alarmzone_5 "Panel Open Triggered" [ stateTopic="dsc-alarm/zone/5/alarm", on="on", off="off" ]
+        Type contact : alarmzone_6 "Siren Tampered Triggered" [ stateTopic="dsc-alarm/zone/6/alarm", on="on", off="off" ]
+}        }        
 ```
 
 ### dscalarm.items
-Here the `Switchable` tag is to expose the alarm to Google Home.
-```
-Contact Alarm_Trouble "Trouble [MAP(dsc-alarm-indicator.map):%s]" { channel="mqtt:topic:mosquitto:dsc:trouble" }
-Switch Alarm_Armed "Alarm"  ["Switchable"] { autoupdate="false", channel="mqtt:topic:mosquitto:dsc:partition_1_away" }
-Contact Alarm_Triggered "Alarm Triggered" { channel="mqtt:topic:mosquitto:dsc:partition_1_alarm" }
-Contact Alarm_Living_Room_Sensor "Living Room Sensor" { channel="mqtt:topic:mosquitto:dsc:openzone_1" }
-Contact Alarm_Lounge_Room_Sensor "Lounge Room Sensor" { channel="mqtt:topic:mosquitto:dsc:openzone_2" }
-Contact Alarm_Bedroom1_Sensor "Bedroom 1 Sensor" { channel="mqtt:topic:mosquitto:dsc:openzone_3" }
-Contact Alarm_Bedroom2_Sensor "Bedroom 2 Sensor" { channel="mqtt:topic:mosquitto:dsc:openzone_4" }
+```java
+Switch  Alarm_Armed          "Alarm Armed"            {channel="mqtt:topic:dsc:partition_1_armed", autoupdate="false"}
+Contact Alarm_Trouble        "Trouble"                {channel="mqtt:topic:dsc:trouble"}
+String  Alarm_State          "Alarm State"            {channel="mqtt:topic:dsc:partition_1_state"}
+Contact Alarm_Triggered      "Alarm Triggered"        {channel="mqtt:topic:dsc:partition_1_alarm"}
+
+Contact LivingRoom_Motion    "Living Room Motion"     {channel="mqtt:topic:dsc:motionzone_1"}
+Contact LoungeRoom_Motion    "Lounge Room Motion"     {channel="mqtt:topic:dsc:motionzone_2"}
+Contact MasterBedRoom_Motion "Master Bed Room Motion" {channel="mqtt:topic:dsc:motionzone_3"}
+Contact StudyRoom_Motion     "Study Room Motion"      {channel="mqtt:topic:dsc:motionzone_4"}
 ```
 
 ### dcalarm.rules
@@ -226,10 +158,7 @@ then
 end
 ```
 
-### dsc-alarm-indicator.map
-```
-1=Yes
-OPEN=Yes
-0=No
-CLOSED=No
-```
+## Credits
+
+* Thanks to [@taligentx](https://github.com/taligentx) for the wonderful [dscKeybusinterface library](https://github.com/taligentx/dscKeybusInterface).
+* The implementation of the custom component was inspired by https://github.com/Dilbert66/esphome-dsckeybus

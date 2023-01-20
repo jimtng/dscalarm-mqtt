@@ -53,6 +53,8 @@ These topics are published by the device.
 | `partition/N/lights/program`   | `on` or `off`                                                                                                                            |
 | `partition/N/lights/fire`      | `on` or `off`                                                                                                                            |
 | `partition/N/lights/backlight` | `on` or `off`                                                                                                                            |
+| `zone/N/motion`                | `on` when motion is detected. `off` otherwise.                                                                                           |
+| `zone/N/alarm`                 | `on` when an alarm is triggered by this zone. `off` otherwise.                                                                           |
 
 ### MQTT commands
 Publish an MQTT message to the following topics in order to control the device.
@@ -68,8 +70,6 @@ Publish an MQTT message to the following topics in order to control the device.
 | `write`                 | Sends the given payload directly to the DSC keybus. This can be used to program the alarm, for example.                                              |
 | `panel-time/update`     | `now`: instructs the device to update the DSC alarm's internal clock based on the ESP's NTP clock. Normally this is done automatically once a month. |
 | `partition/N/armed/set` | `on` to arm partition `N`. `off` to disarm it.                                                                                                       |
-| `zone/N/motion`         | `on` when motion is detected. `off` otherwise.                                                                                                       |
-| `zone/N/alarm`          | `on` when an alarm is triggered by this zone. `off` otherwise.                                                                                       |
 
 ### To arm/disarm a partition, publish to:
 - `dsc-alarm/partition/N/armed/set`: `on` to arm in away mode, `off` to disarm

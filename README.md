@@ -110,7 +110,7 @@ Thing mqtt:topic:dsc "Alarm System" (mqtt:broker:mosquitto) {
         Type contact : battery_trouble "Battery Trouble" [ stateTopic="dsc-alarm/battery-trouble", on="on", off="off" ]
         Type string  : keypad_alarm "Keypad Alarm" [ stateTopic="dsc-alarm/keypad/alarm" ]
 
-        Type switch  : partition_1_armed "Alarm Armed" [ stateTopic="dsc-alarm/partition/1/armed", commandTopic="dsc-alarm/partition/1/armed/set" ]
+        Type switch  : partition_1_armed "Alarm Armed" [ stateTopic="dsc-alarm/partition/1/armed", commandTopic="dsc-alarm/partition/1/armed/set", on="on", off="off" ]
 
         Type contact : partition_1_alarm "Alarm" [ stateTopic="dsc-alarm/partition/1/alarm", on="on", off="off" ]
         Type string  : partition_1_state "State" [ stateTopic="dsc-alarm/partition/1/state" ]
